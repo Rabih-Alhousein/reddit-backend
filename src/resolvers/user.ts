@@ -37,7 +37,7 @@ class userResponse {
 
 @Resolver()
 export class UserResolver {
-  @Mutation(() => User)
+  @Mutation(() => userResponse)
   async register(
     @Arg("options") options: usernamePasswordInput,
     @Ctx() { em }: MyContext
