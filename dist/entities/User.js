@@ -20,7 +20,7 @@ let User = class User {
 };
 exports.User = User;
 __decorate([
-    (0, type_graphql_1.Field)(),
+    (0, type_graphql_1.Field)(() => type_graphql_1.Int),
     (0, core_1.PrimaryKey)(),
     __metadata("design:type", Number)
 ], User.prototype, "id", void 0);
