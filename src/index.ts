@@ -8,9 +8,10 @@ import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
 import RedisStore from "connect-redis";
 import session from "express-session";
-import { createClient } from "redis";
-import { isProd } from "./constants";
+import Redis from "ioredis";
+import { COOKIE_NAME, __prod__ } from "./constants";
 import { MyContext } from "./types";
+import { User } from "./entities/User";
 
 const main = async () => {
   const orm = await MikroORM.init(microOrmConfig);
@@ -19,22 +20,18 @@ const main = async () => {
   const app = express();
 
   // Initialize client.
-  let redisClient = createClient();
-  redisClient
-    .connect()
-    .then(() => console.log("Redis client connected"))
-    .catch(console.error);
+  const redis = new Redis();
 
   // Initialize store.
   let redisStore = new RedisStore({
-    client: redisClient,
+    client: redis,
     disableTouch: true,
   });
 
   // Initialize sesssion storage.
   app.use(
     session({
-      name: "qid", // query id
+      name: COOKIE_NAME, // query id
       store: redisStore,
       resave: false, // required: force lightweight session keep alive (touch)
       saveUninitialized: false, // recommended: only save session when data exists
@@ -56,7 +53,7 @@ const main = async () => {
       resolvers: [HelloResolver, PostResolver, UserResolver],
       validate: false,
     }),
-    context: ({ req, res }): MyContext => ({ em: orm.em, req, res }),
+    context: ({ req, res }): MyContext => ({ em: orm.em, req, res, redis }),
   });
 
   const corsOptions = {
@@ -65,7 +62,7 @@ const main = async () => {
   };
 
   // solution link: https://stackoverflow.com/questions/69333408/express-session-does-not-set-cookie
-  app.set("trust proxy", !isProd);
+  app.set("trust proxy", !__prod__);
 
   await apolloServer.start();
   apolloServer.applyMiddleware({ app, cors: corsOptions });

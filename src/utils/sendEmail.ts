@@ -2,7 +2,7 @@
 import nodemailer from "nodemailer";
 
 // async..await is not allowed in global scope, must use a wrapper
-export async function sendMail(to: string, text: string) {
+export async function sendEmail(to: string, text: string) {
   const transporter = nodemailer.createTransport({
     host: "smtp.ethereal.email",
     port: 587,
