@@ -42,8 +42,11 @@ const main = async () => {
       cookie: {
         maxAge: 1000 * 60 * 60 * 24 * 365 * 10, // 10 years
         httpOnly: true, // cookie is only accessible by the web server (not by javascript)
-        secure: true, // cookie is only sent to the server with an encrypted request over the HTTPS protocol
-        sameSite: "none", // cookie is not sent on cross-site requests (see https://owasp.org/www-community/SameSite)
+        secure: false, // cookie is only sent to the server with an encrypted request over the HTTPS protocol
+        sameSite: "lax", // cookie is not sent on cross-site requests (see https://owasp.org/www-community/SameSite)
+        // for localhost, set sameSite: "lax" and secure: false
+        // for sandbox testing, set sameSite: "none" and secure: true
+        // for production, set sameSite: "lax" and secure: true
       },
     })
   );
@@ -57,14 +60,12 @@ const main = async () => {
   });
 
   const corsOptions = {
-    origin: "https://studio.apollographql.com",
+    origin: ["https://studio.apollographql.com", "http://localhost:3000"],
     credentials: true,
   };
 
   // solution link: https://stackoverflow.com/questions/69333408/express-session-does-not-set-cookie
   app.set("trust proxy", !isProd);
-  app.set("Access-Control-Allow-Origin", "https://studio.apollographql.com");
-  app.set("Access-Control-Allow-Credentials", true);
 
   await apolloServer.start();
   apolloServer.applyMiddleware({ app, cors: corsOptions });

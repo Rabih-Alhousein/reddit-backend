@@ -1,17 +1,16 @@
+import argon2 from "argon2";
 import {
-  Resolver,
-  InputType,
-  Field,
   Arg,
   Ctx,
+  Field,
+  InputType,
   Mutation,
   ObjectType,
   Query,
+  Resolver,
 } from "type-graphql";
-import { MyContext } from "../types";
 import { User } from "../entities/User";
-import argon2 from "argon2";
-import session from "express-session";
+import { MyContext } from "../types";
 
 @InputType()
 class usernamePasswordInput {
@@ -133,5 +132,20 @@ export class UserResolver {
     return {
       user,
     };
+  }
+
+  @Mutation(() => Boolean)
+  logout(@Ctx() { req, res }: MyContext) {
+    return new Promise((resolve) => {
+      return req.session.destroy((err: any) => {
+        res.clearCookie("qid");
+        if (err) {
+          console.log(err);
+          resolve(false);
+        }
+
+        resolve(true);
+      });
+    });
   }
 }
