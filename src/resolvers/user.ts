@@ -25,7 +25,7 @@ class Error {
 }
 
 @ObjectType()
-class userResponse {
+class UserResponse {
   @Field(() => [Error], { nullable: true })
   errors?: Error[];
   @Field(() => User, { nullable: true })
@@ -34,6 +34,62 @@ class userResponse {
 
 @Resolver()
 export class UserResolver {
+  @Mutation(() => UserResponse)
+  async changePassword(
+    @Arg("token") token: string,
+    @Arg("newPassword") newPassword: string,
+    @Ctx() { em, redis, req }: MyContext
+  ): Promise<UserResponse> {
+    if (newPassword.length <= 2) {
+      return {
+        errors: [
+          {
+            field: "newPassword",
+            message: "length must be greater than 2",
+          },
+        ],
+      };
+    }
+
+    const key = `${FORGET_PASSWORD_PREFIX}${token}`;
+    const userId = await redis.get(key);
+    console.log({ userId });
+    console.log({ allKeys: await redis.keys("*") });
+    // delete all keys
+    if (!userId) {
+      return {
+        errors: [
+          {
+            field: "token",
+            message: "token expired",
+          },
+        ],
+      };
+    }
+
+    const user = await em.findOne(User, { id: parseInt(userId) });
+
+    if (!user) {
+      return {
+        errors: [
+          {
+            field: "token",
+            message: "user no longer exists",
+          },
+        ],
+      };
+    }
+
+    user.password = await argon2.hash(newPassword);
+    await em.persistAndFlush(user);
+
+    await redis.del(key);
+
+    // log in user after change password
+    req.session.userId = user.id;
+
+    return { user };
+  }
   @Mutation(() => Boolean)
   async forgotPassword(
     @Arg("email") email: string,
@@ -47,7 +103,7 @@ export class UserResolver {
     const token = v4();
 
     redis.set(
-      `${FORGET_PASSWORD_PREFIX}` + token,
+      `${FORGET_PASSWORD_PREFIX}${token}`,
       user.id,
       "EX",
       1000 * 60 * 60 * 24 * 3 // 3 day
@@ -55,7 +111,10 @@ export class UserResolver {
 
     const message = `<a href="http://localhost:3000/change-password/${token}">reset password</a>`;
 
-    await sendEmail(email, message);
+    console.log(message);
+
+    // TODO: fix send email
+    // await sendEmail(email, message);
 
     return true;
   }
@@ -68,11 +127,11 @@ export class UserResolver {
     return user;
   }
 
-  @Mutation(() => userResponse)
+  @Mutation(() => UserResponse)
   async register(
     @Arg("options") options: usernamePasswordInput,
     @Ctx() { em }: MyContext
-  ): Promise<userResponse> {
+  ): Promise<UserResponse> {
     const errors = validateRegister(options);
     if (errors) {
       return {
@@ -105,12 +164,12 @@ export class UserResolver {
     return { user };
   }
 
-  @Mutation(() => userResponse)
+  @Mutation(() => UserResponse)
   async login(
     @Arg("usernameOrEmail") usernameOrEmail: string,
     @Arg("password") password: string,
     @Ctx() { em, req }: MyContext
-  ): Promise<userResponse> {
+  ): Promise<UserResponse> {
     const user = await em.findOne(User, {
       $or: [{ username: usernameOrEmail }, { email: usernameOrEmail }],
     });
