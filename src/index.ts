@@ -1,5 +1,4 @@
-import { MikroORM, RequiredEntityData } from "@mikro-orm/core";
-import microOrmConfig from "./mikro-orm.config";
+import "reflect-metadata";
 import express from "express";
 import { ApolloServer } from "apollo-server-express";
 import { HelloResolver } from "./resolvers/hello";
@@ -11,11 +10,30 @@ import session from "express-session";
 import Redis from "ioredis";
 import { COOKIE_NAME, __prod__ } from "./constants";
 import { MyContext } from "./types";
+import { DataSource } from "typeorm";
+import { Post } from "./entities/Post";
 import { User } from "./entities/User";
+import { ExpressContext } from "apollo-server-express";
 
 const main = async () => {
-  const orm = await MikroORM.init(microOrmConfig);
-  await orm.getMigrator().up();
+  const AppDataSource = new DataSource({
+    type: "postgres",
+    host: "localhost",
+    username: "postgres",
+    password: "123",
+    database: "reddit",
+    logging: true,
+    synchronize: true,
+    entities: [Post, User],
+  });
+
+  AppDataSource.initialize()
+    .then(() => {
+      console.log("Data Source has been initialized!");
+    })
+    .catch((err) => {
+      console.error("Error during Data Source initialization", err);
+    });
 
   const app = express();
 
@@ -53,7 +71,7 @@ const main = async () => {
       resolvers: [HelloResolver, PostResolver, UserResolver],
       validate: false,
     }),
-    context: ({ req, res }): MyContext => ({ em: orm.em, req, res, redis }),
+    context: ({ req, res }: ExpressContext): MyContext => ({ req, res, redis }),
   });
 
   const corsOptions = {
