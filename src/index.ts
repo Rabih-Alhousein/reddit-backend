@@ -14,6 +14,7 @@ import { DataSource } from "typeorm";
 import { Post } from "./entities/Post";
 import { User } from "./entities/User";
 import { ExpressContext } from "apollo-server-express";
+import path from "path";
 
 const main = async () => {
   const AppDataSource = new DataSource({
@@ -24,11 +25,14 @@ const main = async () => {
     database: "reddit",
     logging: true,
     synchronize: true,
+    migrations: [path.join(__dirname, "./migrations/*")],
     entities: [Post, User],
   });
 
   AppDataSource.initialize()
     .then(() => {
+      AppDataSource.runMigrations();
+
       console.log("Data Source has been initialized!");
     })
     .catch((err) => {
@@ -57,8 +61,8 @@ const main = async () => {
       cookie: {
         maxAge: 1000 * 60 * 60 * 24 * 365 * 10, // 10 years
         httpOnly: true, // cookie is only accessible by the web server (not by javascript)
-        secure: true, // cookie is only sent to the server with an encrypted request over the HTTPS protocol
-        sameSite: "none", // cookie is not sent on cross-site requests (see https://owasp.org/www-community/SameSite)
+        secure: false, // cookie is only sent to the server with an encrypted request over the HTTPS protocol
+        sameSite: "lax", // cookie is not sent on cross-site requests (see https://owasp.org/www-community/SameSite)
         // for localhost, set sameSite: "lax" and secure: false
         // for sandbox testing, set sameSite: "none" and secure: true
         // for production, set sameSite: "lax" and secure: true

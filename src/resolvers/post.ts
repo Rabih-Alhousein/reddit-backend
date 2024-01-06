@@ -8,10 +8,13 @@ import {
   InputType,
   Field,
   UseMiddleware,
+  FieldResolver,
+  Root,
 } from "type-graphql";
 import { Post } from "../entities/Post";
 import { MyContext } from "../types";
 import { isAuth } from "../middlewares/isAuth";
+import { LessThan } from "typeorm";
 
 @InputType()
 class PostInput {
@@ -21,11 +24,27 @@ class PostInput {
   text!: string;
 }
 
-@Resolver()
+@Resolver(Post)
 export class PostResolver {
+  @FieldResolver(() => String)
+  textSnippet(@Root() root: Post) {
+    return root.text.slice(0, 50);
+  }
+
   @Query(() => [Post])
-  posts(): Promise<Post[]> {
-    return Post.find();
+  posts(
+    @Arg("limit", () => Int) limit: number,
+    @Arg("cusror", { nullable: true }) cusror?: string
+  ): Promise<Post[]> {
+    const realLimit = Math.min(50, limit);
+
+    const query = Post.find({
+      order: { createdAt: "DESC" },
+      take: realLimit,
+      where: cusror ? { createdAt: LessThan(new Date(cusror)) } : {},
+    });
+
+    return query;
   }
 
   @Query(() => Post, { nullable: true })
