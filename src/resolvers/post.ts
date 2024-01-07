@@ -95,6 +95,7 @@ export class PostResolver {
   }
 
   @Query(() => PaginatedPosts)
+  @UseMiddleware(isAuth)
   async posts(
     @Ctx() { req }: MyContext,
     @Arg("limit", () => Int) limit: number,
@@ -131,8 +132,9 @@ export class PostResolver {
   }
 
   @Query(() => Post, { nullable: true })
-  post(@Arg("id") id: number): Promise<Post | null> {
-    return Post.findOneBy({ id });
+  @UseMiddleware(isAuth)
+  post(@Arg("id", () => Int) id: number): Promise<Post | null> {
+    return Post.findOne({ where: { id }, relations: ["creator"] });
   }
 
   @Mutation(() => Post)
@@ -166,8 +168,22 @@ export class PostResolver {
   }
 
   @Mutation(() => Boolean)
-  async deletePost(@Arg("id") id: number): Promise<boolean> {
-    await Post.delete(id);
+  @UseMiddleware(isAuth)
+  async deletePost(
+    @Arg("id", () => Int) id: number,
+    @Ctx() { req }: MyContext
+  ): Promise<boolean> {
+    const post = await Post.findOneBy({ id });
+    if (!post) {
+      throw new Error("post not found");
+    }
+
+    if (post.creatorId !== req.session.userId) {
+      throw new Error("not authorized");
+    }
+
+    await Upvote.delete({ postId: id });
+    await Post.delete({ id, creatorId: req.session.userId });
     return true;
   }
 }
