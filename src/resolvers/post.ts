@@ -16,6 +16,7 @@ import { Post } from "../entities/Post";
 import { MyContext } from "../types";
 import { isAuth } from "../middlewares/isAuth";
 import { LessThan } from "typeorm";
+import { Upvote } from "../entities/UpVote";
 
 @InputType()
 class PostInput {
@@ -38,6 +39,38 @@ export class PostResolver {
   @FieldResolver(() => String)
   textSnippet(@Root() root: Post) {
     return root.text.slice(0, 50);
+  }
+
+  @Mutation(() => Boolean)
+  @UseMiddleware(isAuth)
+  async vote(
+    @Arg("postId", () => Int) postId: number,
+    @Arg("value", () => Int) value: number,
+    @Ctx() { req }: MyContext
+  ) {
+    if (![1, -1].includes(value)) {
+      throw new Error("value must be 1 or -1");
+    }
+
+    const { userId } = req.session;
+
+    const post = await Post.findOneBy({ id: postId });
+
+    if (!post) {
+      return false;
+    }
+
+    await Upvote.create({
+      userId,
+      postId,
+      value,
+    }).save();
+
+    // update post points
+    post.points = post.points + value;
+    await Post.save(post);
+
+    return true;
   }
 
   @Query(() => PaginatedPosts)
