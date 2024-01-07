@@ -152,19 +152,28 @@ export class PostResolver {
 
   @Mutation(() => Post, { nullable: true })
   async updatePost(
-    @Arg("id") id: number,
-    @Arg("title", { nullable: true }) title: string
+    @Ctx() { req }: MyContext,
+    @Arg("id", () => Int) id: number,
+    @Arg("title") title: string,
+    @Arg("text") text: string
   ): Promise<Post | null> {
     const post = await Post.findOneBy({ id });
     if (!post) {
       return null;
     }
 
-    if (typeof title !== "undefined") {
-      await Post.update({ id }, { title });
+    if (post.creatorId !== req.session.userId) {
+      throw new Error("not authorized");
     }
 
-    return post;
+    await Post.update({ id }, { title, text });
+
+    const updatedPost = await Post.findOne({
+      where: { id },
+      relations: ["creator"],
+    });
+
+    return updatedPost;
   }
 
   @Mutation(() => Boolean)
