@@ -60,6 +60,27 @@ export class PostResolver {
       return false;
     }
 
+    const upvote = await Upvote.findOne({ where: { postId, userId } });
+
+    if (upvote) {
+      // user has voted on the post before and is changing their vote
+      if (upvote.value !== value) {
+        await Upvote.update({ postId, userId }, { value });
+        post.points = post.points + 2 * value;
+        await Post.save(post);
+
+        return true;
+      }
+
+      // user has voted and is voting the same value
+      await Upvote.delete({ postId, userId });
+      post.points = post.points - value;
+      await Post.save(post);
+
+      return true;
+    }
+
+    // has never voted before
     await Upvote.create({
       userId,
       postId,
@@ -75,9 +96,11 @@ export class PostResolver {
 
   @Query(() => PaginatedPosts)
   async posts(
+    @Ctx() { req }: MyContext,
     @Arg("limit", () => Int) limit: number,
     @Arg("cursor", { nullable: true }) cursor?: string
   ): Promise<PaginatedPosts> {
+    const userId = req.session.userId;
     const realLimit = Math.min(50, limit);
     const realLimitPlusOne = realLimit + 1;
 
@@ -85,13 +108,24 @@ export class PostResolver {
       order: { createdAt: "DESC" },
       take: realLimitPlusOne,
       where: cursor ? { createdAt: LessThan(new Date(cursor)) } : {},
-      relations: ["creator"],
+      relations: ["creator", "upvotes"],
     });
 
-    console.log({ postsLength: posts.length, realLimitPlusOne });
+    // change upvoteStatus of user to 1 or -1 for each post
+    const updatedPosts = await Promise.all(
+      posts.map(async (post) => {
+        const upvote = await Upvote.findOne({
+          where: { postId: post.id, userId },
+        });
+
+        post.voteStatus = upvote ? upvote.value : null;
+
+        return post;
+      })
+    );
 
     return {
-      posts: posts.slice(0, realLimit),
+      posts: updatedPosts.slice(0, realLimit),
       hasMore: posts.length === realLimitPlusOne,
     };
   }
