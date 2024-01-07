@@ -52,6 +52,7 @@ export class PostResolver {
       order: { createdAt: "DESC" },
       take: realLimitPlusOne,
       where: cursor ? { createdAt: LessThan(new Date(cursor)) } : {},
+      relations: ["creator"],
     });
 
     console.log({ postsLength: posts.length, realLimitPlusOne });
