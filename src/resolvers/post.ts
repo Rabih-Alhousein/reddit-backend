@@ -10,6 +10,7 @@ import {
   UseMiddleware,
   FieldResolver,
   Root,
+  ObjectType,
 } from "type-graphql";
 import { Post } from "../entities/Post";
 import { MyContext } from "../types";
@@ -24,6 +25,14 @@ class PostInput {
   text!: string;
 }
 
+@ObjectType()
+class PaginatedPosts {
+  @Field(() => [Post])
+  posts: Post[];
+  @Field()
+  hasMore: boolean;
+}
+
 @Resolver(Post)
 export class PostResolver {
   @FieldResolver(() => String)
@@ -31,20 +40,26 @@ export class PostResolver {
     return root.text.slice(0, 50);
   }
 
-  @Query(() => [Post])
-  posts(
+  @Query(() => PaginatedPosts)
+  async posts(
     @Arg("limit", () => Int) limit: number,
-    @Arg("cusror", { nullable: true }) cusror?: string
-  ): Promise<Post[]> {
+    @Arg("cursor", { nullable: true }) cursor?: string
+  ): Promise<PaginatedPosts> {
     const realLimit = Math.min(50, limit);
+    const realLimitPlusOne = realLimit + 1;
 
-    const query = Post.find({
+    const posts = await Post.find({
       order: { createdAt: "DESC" },
-      take: realLimit,
-      where: cusror ? { createdAt: LessThan(new Date(cusror)) } : {},
+      take: realLimitPlusOne,
+      where: cursor ? { createdAt: LessThan(new Date(cursor)) } : {},
     });
 
-    return query;
+    console.log({ postsLength: posts.length, realLimitPlusOne });
+
+    return {
+      posts: posts.slice(0, realLimit),
+      hasMore: posts.length === realLimitPlusOne,
+    };
   }
 
   @Query(() => Post, { nullable: true })
