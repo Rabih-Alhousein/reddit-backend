@@ -15,8 +15,9 @@ import {
 import { Post } from "../entities/Post";
 import { MyContext } from "../types";
 import { isAuth } from "../middlewares/isAuth";
-import { LessThan } from "typeorm";
+import { LessThan, Like } from "typeorm";
 import { Upvote } from "../entities/UpVote";
+import { User } from "../entities/User";
 
 @InputType()
 class PostInput {
@@ -39,6 +40,11 @@ export class PostResolver {
   @FieldResolver(() => String)
   textSnippet(@Root() root: Post) {
     return root.text.slice(0, 50);
+  }
+
+  @FieldResolver(() => User)
+  creator(@Root() post: Post) {
+    return User.findOneBy({ id: post.creatorId });
   }
 
   @Mutation(() => Boolean)
@@ -95,9 +101,9 @@ export class PostResolver {
   }
 
   @Query(() => PaginatedPosts)
-  @UseMiddleware(isAuth)
   async posts(
     @Ctx() { req }: MyContext,
+    @Arg("search", { nullable: true }) search: string,
     @Arg("limit", () => Int) limit: number,
     @Arg("cursor", { nullable: true }) cursor?: string
   ): Promise<PaginatedPosts> {
@@ -105,19 +111,30 @@ export class PostResolver {
     const realLimit = Math.min(50, limit);
     const realLimitPlusOne = realLimit + 1;
 
+    const whereOptions = {} as any;
+    if (search) {
+      whereOptions.title = Like(`%${search}%`);
+    }
+
+    if (cursor) {
+      whereOptions.createdAt = LessThan(new Date(cursor));
+    }
+
     const posts = await Post.find({
       order: { createdAt: "DESC" },
       take: realLimitPlusOne,
-      where: cursor ? { createdAt: LessThan(new Date(cursor)) } : {},
-      relations: ["creator", "upvotes"],
+      where: whereOptions,
+      relations: ["upvotes"],
     });
 
     // change upvoteStatus of user to 1 or -1 for each post
     const updatedPosts = await Promise.all(
       posts.map(async (post) => {
-        const upvote = await Upvote.findOne({
-          where: { postId: post.id, userId },
-        });
+        let upvote;
+
+        if (userId) {
+          upvote = await Upvote.findOne({ where: { postId: post.id, userId } });
+        }
 
         post.voteStatus = upvote ? upvote.value : null;
 
@@ -134,7 +151,7 @@ export class PostResolver {
   @Query(() => Post, { nullable: true })
   @UseMiddleware(isAuth)
   post(@Arg("id", () => Int) id: number): Promise<Post | null> {
-    return Post.findOne({ where: { id }, relations: ["creator"] });
+    return Post.findOne({ where: { id } });
   }
 
   @Mutation(() => Post)
@@ -168,10 +185,7 @@ export class PostResolver {
 
     await Post.update({ id }, { title, text });
 
-    const updatedPost = await Post.findOne({
-      where: { id },
-      relations: ["creator"],
-    });
+    const updatedPost = await Post.findOneBy({ id });
 
     return updatedPost;
   }
