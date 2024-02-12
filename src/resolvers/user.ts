@@ -128,8 +128,6 @@ export class UserResolver {
 
     const message = `<a href="http://localhost:3000/change-password/${token}">reset password</a>`;
 
-    console.log(message);
-
     // TODO: fix send email
     // await sendEmail(email, message);
 
@@ -137,7 +135,6 @@ export class UserResolver {
   }
   @Query(() => User, { nullable: true })
   me(@Ctx() { req }: MyContext) {
-    console.log(req.session);
     if (!req.session.userId) {
       return null;
     }
