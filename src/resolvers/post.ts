@@ -15,7 +15,7 @@ import {
 import { Post } from "../entities/Post";
 import { MyContext } from "../types";
 import { isAuth } from "../middlewares/isAuth";
-import { LessThan, Like } from "typeorm";
+import { LessThan, ILike } from "typeorm";
 import { Upvote } from "../entities/UpVote";
 import { User } from "../entities/User";
 
@@ -113,7 +113,7 @@ export class PostResolver {
 
     const whereOptions = {} as any;
     if (search) {
-      whereOptions.title = Like(`%${search}%`);
+      whereOptions.title = ILike(`%${search}%`);
     }
 
     if (cursor) {
