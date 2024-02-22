@@ -2,6 +2,7 @@ import "reflect-metadata";
 import express from "express";
 import { ApolloServer } from "apollo-server-express";
 import { HelloResolver } from "./resolvers/hello";
+import "dotenv-safe/config";
 import { buildSchema } from "type-graphql";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
@@ -20,10 +21,7 @@ import { Upvote } from "./entities/UpVote";
 const main = async () => {
   const AppDataSource = new DataSource({
     type: "postgres",
-    host: "localhost",
-    username: "postgres",
-    password: "123",
-    database: "reddit",
+    url: process.env.DATABASE_URL,
     logging: true,
     synchronize: true,
     migrations: [path.join(__dirname, "./migrations/*")],
@@ -43,7 +41,7 @@ const main = async () => {
   const app = express();
 
   // Initialize client.
-  const redis = new Redis();
+  const redis = new Redis(`redis://${process.env.REDIS_URL}`);
 
   // Initialize store.
   let redisStore = new RedisStore({
@@ -58,12 +56,13 @@ const main = async () => {
       store: redisStore,
       resave: false, // required: force lightweight session keep alive (touch)
       saveUninitialized: false, // recommended: only save session when data exists
-      secret: "keyboard cat",
+      secret: process.env.SESSION_SECRET as string,
       cookie: {
         maxAge: 1000 * 60 * 60 * 24 * 365 * 10, // 10 years
         httpOnly: true, // cookie is only accessible by the web server (not by javascript)
-        secure: false, // cookie is only sent to the server with an encrypted request over the HTTPS protocol
+        secure: __prod__, // cookie is only sent to the server with an encrypted request over the HTTPS protocol
         sameSite: "lax", // cookie is not sent on cross-site requests (see https://owasp.org/www-community/SameSite)
+        domain: __prod__ ? ".codeponder.com" : undefined,
         // for localhost, set sameSite: "lax" and secure: false
         // for sandbox testing, set sameSite: "none" and secure: true
         // for production, set sameSite: "lax" and secure: true
@@ -80,7 +79,10 @@ const main = async () => {
   });
 
   const corsOptions = {
-    origin: ["https://studio.apollographql.com", "http://localhost:3000"],
+    origin: [
+      "https://studio.apollographql.com",
+      process.env.CORS_ORIGIN as string,
+    ],
     credentials: true,
   };
 

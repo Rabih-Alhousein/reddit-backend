@@ -39,7 +39,7 @@ class PaginatedPosts {
 export class PostResolver {
   @FieldResolver(() => String)
   textSnippet(@Root() root: Post) {
-    return root.text.slice(0, 50);
+    return root.text.slice(0, 150);
   }
 
   @FieldResolver(() => User)
@@ -115,7 +115,6 @@ export class PostResolver {
     if (search) {
       whereOptions.title = ILike(`%${search}%`);
     }
-
     if (cursor) {
       whereOptions.createdAt = LessThan(new Date(cursor));
     }
