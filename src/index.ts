@@ -62,6 +62,9 @@ const main = async () => {
 
   console.log({ __prod__ });
 
+  const domain = __prod__ ? "reddithub.vercel.app" : undefined;
+  console.log({ domain });
+
   // Initialize sesssion storage.
   app.use(
     session({
@@ -74,11 +77,11 @@ const main = async () => {
         maxAge: 1000 * 60 * 60 * 24 * 365 * 10, // 10 years
         httpOnly: true, // cookie is only accessible by the web server (not by javascript)
         secure: __prod__, // cookie is only sent to the server with an encrypted request over the HTTPS protocol
-        sameSite: "lax", // cookie is not sent on cross-site requests (see https://owasp.org/www-community/SameSite)
-        domain: __prod__ ? "reddithub.vercel.app" : undefined,
+        sameSite: "none", // cookie is not sent on cross-site requests (see https://owasp.org/www-community/SameSite)
+        domain,
         // for localhost, set sameSite: "lax" and secure: false
         // for sandbox testing, set sameSite: "none" and secure: true
-        // for production, set sameSite: "lax" and secure: true
+        // for production, set sameSite: "none" and secure: true
       },
     })
   );
