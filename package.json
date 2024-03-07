@@ -4,18 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "rimraf dist && tsc",
-    "ts.check": "tsc --project tsconfig.json",
-    "add-build": "git add dist",
+    "build": "tsc",
     "watch": "tsc -w",
     "dev": "nodemon ./dist/index.js",
     "start": "nodemon ./dist/index.ts"
   },
-  "pre-commit": [
-    "ts.check",
-    "build",
-    "add-build"
-  ], 
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -44,9 +37,7 @@
     "@types/node": "^20.8.3",
     "@types/nodemailer": "^6.4.13",
     "@types/uuid": "^9.0.6",
-    "nodemon": "^3.0.1",
-    "pre-commit": "^1.2.2",
-    "rimraf": "^5.0.5"
+    "nodemon": "^3.0.1"
   },
   "mikro-orm": {
     "useTsNode": true,
