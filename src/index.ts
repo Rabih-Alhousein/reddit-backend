@@ -75,7 +75,7 @@ const main = async () => {
         httpOnly: true, // cookie is only accessible by the web server (not by javascript)
         secure: __prod__, // cookie is only sent to the server with an encrypted request over the HTTPS protocol
         sameSite: "none", // cookie is not sent on cross-site requests (see https://owasp.org/www-community/SameSite)
-        domain: __prod__ ? ".reddithub.vercel.app" : undefined,
+        domain: __prod__ ? "reddithub.vercel.app" : undefined,
         // for localhost, set sameSite: "lax" and secure: false
         // for sandbox testing, set sameSite: "none" and secure: true
         // for production, set sameSite: "none" and secure: true
