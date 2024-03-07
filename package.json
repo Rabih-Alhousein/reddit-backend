@@ -2,13 +2,13 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "",
-  "main": "server.js",
+  "main": "index.js",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "dev": "nodemon ./dist/server.js",
-    "start": "nodemon ./dist/server.js",
-    "start2": "ts-node ./src/server.ts"
+    "dev": "nodemon ./dist/index.js",
+    "start": "nodemon ./dist/index.js",
+    "start2": "ts-node ./src/index.ts"
   },
   "keywords": [],
   "author": "",
