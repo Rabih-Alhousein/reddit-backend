@@ -107,7 +107,7 @@ export class PostResolver {
     @Arg("limit", () => Int) limit: number,
     @Arg("cursor", { nullable: true }) cursor?: string
   ): Promise<PaginatedPosts> {
-    const userId = req.session.userId;
+    const userId = req?.session?.userId;
     const realLimit = Math.min(50, limit);
     const realLimitPlusOne = realLimit + 1;
 

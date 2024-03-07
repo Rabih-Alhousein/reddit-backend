@@ -22,6 +22,7 @@ const main = async () => {
   const AppDataSource = new DataSource({
     type: "postgres",
     url: process.env.DATABASE_URL,
+    poolSize: 10,
     logging: true,
     synchronize: true,
     migrations: [path.join(__dirname, "./migrations/*")],
@@ -40,8 +41,18 @@ const main = async () => {
 
   const app = express();
 
+  const redisURL = `redis://:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`;
+
   // Initialize client.
-  const redis = new Redis(`redis://${process.env.REDIS_URL}`);
+  const redis = new Redis(redisURL);
+
+  redis.on("ready", () => {
+    console.log("Connected to Redis");
+  });
+
+  redis.on("error", (err) => {
+    console.error("Error connecting to Redis", err);
+  });
 
   // Initialize store.
   let redisStore = new RedisStore({
@@ -62,7 +73,7 @@ const main = async () => {
         httpOnly: true, // cookie is only accessible by the web server (not by javascript)
         secure: __prod__, // cookie is only sent to the server with an encrypted request over the HTTPS protocol
         sameSite: "lax", // cookie is not sent on cross-site requests (see https://owasp.org/www-community/SameSite)
-        domain: __prod__ ? ".codeponder.com" : undefined,
+        domain: __prod__ ? "https://redd-app.vercel.app" : undefined,
         // for localhost, set sameSite: "lax" and secure: false
         // for sandbox testing, set sameSite: "none" and secure: true
         // for production, set sameSite: "lax" and secure: true
@@ -81,7 +92,7 @@ const main = async () => {
   const corsOptions = {
     origin: [
       "https://studio.apollographql.com",
-      process.env.CORS_ORIGIN as string,
+      process.env.FRONTEND_URL as string,
     ],
     credentials: true,
   };
