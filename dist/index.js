@@ -53,9 +53,6 @@ const main = async () => {
         client: redis,
         disableTouch: true,
     });
-    console.log({ __prod__: constants_1.__prod__ });
-    const domain = constants_1.__prod__ ? "reddithub.vercel.app" : undefined;
-    console.log({ domain });
     // Initialize sesssion storage.
     app.use((0, express_session_1.default)({
         name: constants_1.COOKIE_NAME, // query id
@@ -68,7 +65,7 @@ const main = async () => {
             httpOnly: true, // cookie is only accessible by the web server (not by javascript)
             secure: constants_1.__prod__, // cookie is only sent to the server with an encrypted request over the HTTPS protocol
             sameSite: "none", // cookie is not sent on cross-site requests (see https://owasp.org/www-community/SameSite)
-            domain,
+            domain: constants_1.__prod__ ? "reddithub.vercel.app/login" : undefined,
             // for localhost, set sameSite: "lax" and secure: false
             // for sandbox testing, set sameSite: "none" and secure: true
             // for production, set sameSite: "none" and secure: true
@@ -89,7 +86,7 @@ const main = async () => {
         credentials: true,
     };
     // solution link: https://stackoverflow.com/questions/69333408/express-session-does-not-set-cookie
-    app.set("trust proxy", !constants_1.__prod__);
+    app.set("trust proxy", 1);
     await apolloServer.start();
     apolloServer.applyMiddleware({ app, cors: corsOptions });
     app.listen(4000, () => {
