@@ -60,7 +60,7 @@ const main = async () => {
     disableTouch: true,
   });
 
-  app.set("trust proxy", !__prod__);
+  app.set("trust proxy", 1);
 
   // Initialize sesssion storage.
   app.use(
