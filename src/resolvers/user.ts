@@ -9,6 +9,7 @@ import {
   Query,
   Resolver,
   Root,
+  UseMiddleware,
 } from "type-graphql";
 import { User } from "../entities/User";
 import { MyContext } from "../types";
@@ -17,6 +18,8 @@ import { validateRegister } from "../utils/validateRegister";
 import { sendEmail } from "../utils/sendEmail";
 import { v4 } from "uuid";
 import { COOKIE_NAME, FORGET_PASSWORD_PREFIX } from "../constants";
+import jwt from "jsonwebtoken";
+import { validateToken } from "../middlewares/vadliateToken";
 
 @ObjectType()
 class Error {
@@ -32,6 +35,8 @@ class UserResponse {
   errors?: Error[];
   @Field(() => User, { nullable: true })
   user?: User;
+  @Field(() => String, { nullable: true })
+  accessToken?: string;
 }
 
 @Resolver(User)
@@ -39,7 +44,7 @@ export class UserResolver {
   @FieldResolver(() => String)
   email(@Root() user: User, @Ctx() { req }: MyContext) {
     // this is the current user and its ok to show them their own email
-    if (req.session.userId === user.id) {
+    if (req.user?.id === user.id) {
       return user.email;
     }
 
@@ -102,10 +107,12 @@ export class UserResolver {
 
     await redis.del(key);
 
-    // log in user after change password
-    req.session.userId = user.id;
+    const accessToken = jwt.sign(
+      { id: user.id },
+      process.env.JWT_SECRET_KEY ?? ""
+    );
 
-    return { user };
+    return { user, accessToken };
   }
   @Mutation(() => Boolean)
   async forgotPassword(
@@ -134,12 +141,9 @@ export class UserResolver {
     return true;
   }
   @Query(() => User, { nullable: true })
+  @UseMiddleware(validateToken)
   me(@Ctx() { req }: MyContext) {
-    if (!req.session.userId) {
-      return null;
-    }
-    const user = User.findOneBy({ id: req.session.userId });
-    return user;
+    return req.user;
   }
 
   @Mutation(() => UserResponse)
@@ -162,7 +166,12 @@ export class UserResolver {
         password: hashedPassword,
       }).save();
 
-      return { user };
+      const accessToken = jwt.sign(
+        { id: user.id },
+        process.env.JWT_SECRET_KEY ?? ""
+      );
+
+      return { user, accessToken };
     } catch (err: any) {
       if (err.code === "23505") {
         return {
@@ -220,25 +229,23 @@ export class UserResolver {
       };
     }
 
-    req.session.userId = user.id;
+    const accessToken = jwt.sign(
+      { id: user.id },
+      process.env.JWT_SECRET_KEY ?? ""
+    );
 
     return {
+      accessToken,
       user,
     };
   }
 
   @Mutation(() => Boolean)
-  logout(@Ctx() { req, res }: MyContext) {
-    return new Promise((resolve) => {
-      return req.session.destroy((err: any) => {
-        res.clearCookie(COOKIE_NAME);
-        if (err) {
-          console.log(err);
-          resolve(false);
-        }
+  logout(@Ctx() { req }: MyContext) {
+    if (req.user) {
+      req.user = undefined;
+    }
 
-        resolve(true);
-      });
-    });
+    return true;
   }
 }

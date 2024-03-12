@@ -14,10 +14,13 @@ import {
 } from "type-graphql";
 import { Post } from "../entities/Post";
 import { MyContext } from "../types";
-import { isAuth } from "../middlewares/isAuth";
 import { LessThan, ILike } from "typeorm";
 import { Upvote } from "../entities/UpVote";
 import { User } from "../entities/User";
+import {
+  validateToken,
+  validateTokenIfExists,
+} from "../middlewares/vadliateToken";
 
 @InputType()
 class PostInput {
@@ -48,7 +51,7 @@ export class PostResolver {
   }
 
   @Mutation(() => Boolean)
-  @UseMiddleware(isAuth)
+  @UseMiddleware(validateToken)
   async vote(
     @Arg("postId", () => Int) postId: number,
     @Arg("value", () => Int) value: number,
@@ -58,7 +61,8 @@ export class PostResolver {
       throw new Error("value must be 1 or -1");
     }
 
-    const { userId } = req.session;
+    const userId = req.user?.id;
+    console.log({ userId, postId, value });
 
     const post = await Post.findOneBy({ id: postId });
 
@@ -101,13 +105,15 @@ export class PostResolver {
   }
 
   @Query(() => PaginatedPosts)
+  @UseMiddleware(validateTokenIfExists)
   async posts(
     @Ctx() { req }: MyContext,
     @Arg("search", { nullable: true }) search: string,
     @Arg("limit", () => Int) limit: number,
     @Arg("cursor", { nullable: true }) cursor?: string
   ): Promise<PaginatedPosts> {
-    const userId = req?.session?.userId;
+    const userId = req?.user?.id;
+    console.log({ userId });
     const realLimit = Math.min(50, limit);
     const realLimitPlusOne = realLimit + 1;
 
@@ -136,6 +142,7 @@ export class PostResolver {
         }
 
         post.voteStatus = upvote ? upvote.value : null;
+        console.log(upvote);
 
         return post;
       })
@@ -148,25 +155,22 @@ export class PostResolver {
   }
 
   @Query(() => Post, { nullable: true })
-  @UseMiddleware(isAuth)
+  @UseMiddleware(validateToken)
   post(@Arg("id", () => Int) id: number): Promise<Post | null> {
     return Post.findOne({ where: { id } });
   }
 
   @Mutation(() => Post)
-  @UseMiddleware(isAuth)
+  @UseMiddleware(validateToken)
   async createPost(
     @Arg("input") input: PostInput,
     @Ctx() { req }: MyContext
   ): Promise<Post | null> {
-    if (!req.session.userId) {
-      throw new Error("not authenticated");
-    }
-
-    return Post.create({ ...input, creatorId: req.session.userId }).save();
+    return Post.create({ ...input, creatorId: req.user?.id }).save();
   }
 
   @Mutation(() => Post, { nullable: true })
+  @UseMiddleware(validateToken)
   async updatePost(
     @Ctx() { req }: MyContext,
     @Arg("id", () => Int) id: number,
@@ -178,7 +182,7 @@ export class PostResolver {
       return null;
     }
 
-    if (post.creatorId !== req.session.userId) {
+    if (post.creatorId !== req.user?.id) {
       throw new Error("not authorized");
     }
 
@@ -190,7 +194,7 @@ export class PostResolver {
   }
 
   @Mutation(() => Boolean)
-  @UseMiddleware(isAuth)
+  @UseMiddleware(validateToken)
   async deletePost(
     @Arg("id", () => Int) id: number,
     @Ctx() { req }: MyContext
@@ -200,12 +204,12 @@ export class PostResolver {
       throw new Error("post not found");
     }
 
-    if (post.creatorId !== req.session.userId) {
+    if (post.creatorId !== req.user?.id) {
       throw new Error("not authorized");
     }
 
     await Upvote.delete({ postId: id });
-    await Post.delete({ id, creatorId: req.session.userId });
+    await Post.delete({ id, creatorId: req.user?.id });
     return true;
   }
 }

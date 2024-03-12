@@ -23,6 +23,8 @@ const usernamePasswordInput_1 = require("./usernamePasswordInput");
 const validateRegister_1 = require("../utils/validateRegister");
 const uuid_1 = require("uuid");
 const constants_1 = require("../constants");
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const vadliateToken_1 = require("../middlewares/vadliateToken");
 let Error = class Error {
 };
 __decorate([
@@ -46,19 +48,25 @@ __decorate([
     (0, type_graphql_1.Field)(() => User_1.User, { nullable: true }),
     __metadata("design:type", User_1.User)
 ], UserResponse.prototype, "user", void 0);
+__decorate([
+    (0, type_graphql_1.Field)(() => String, { nullable: true }),
+    __metadata("design:type", String)
+], UserResponse.prototype, "accessToken", void 0);
 UserResponse = __decorate([
     (0, type_graphql_1.ObjectType)()
 ], UserResponse);
 let UserResolver = class UserResolver {
     email(user, { req }) {
+        var _a;
         // this is the current user and its ok to show them their own email
-        if (req.session.userId === user.id) {
+        if (((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) === user.id) {
             return user.email;
         }
         // current user wants to see someone elses email
         return "";
     }
     async changePassword(token, newPassword, { redis, req }) {
+        var _a;
         if (newPassword.length <= 2) {
             return {
                 errors: [
@@ -99,9 +107,8 @@ let UserResolver = class UserResolver {
             password: await argon2_1.default.hash(newPassword),
         });
         await redis.del(key);
-        // log in user after change password
-        req.session.userId = user.id;
-        return { user };
+        const accessToken = jsonwebtoken_1.default.sign({ id: user.id }, (_a = process.env.JWT_SECRET_KEY) !== null && _a !== void 0 ? _a : "");
+        return { user, accessToken };
     }
     async forgotPassword(email, { redis }) {
         const user = await User_1.User.findOne({ where: { email } });
@@ -117,13 +124,10 @@ let UserResolver = class UserResolver {
         return true;
     }
     me({ req }) {
-        if (!req.session.userId) {
-            return null;
-        }
-        const user = User_1.User.findOneBy({ id: req.session.userId });
-        return user;
+        return req.user;
     }
     async register(options) {
+        var _a;
         const errors = (0, validateRegister_1.validateRegister)(options);
         if (errors) {
             return {
@@ -137,7 +141,8 @@ let UserResolver = class UserResolver {
                 username: options.username,
                 password: hashedPassword,
             }).save();
-            return { user };
+            const accessToken = jsonwebtoken_1.default.sign({ id: user.id }, (_a = process.env.JWT_SECRET_KEY) !== null && _a !== void 0 ? _a : "");
+            return { user, accessToken };
         }
         catch (err) {
             if (err.code === "23505") {
@@ -161,6 +166,7 @@ let UserResolver = class UserResolver {
         };
     }
     async login(usernameOrEmail, password, { req }) {
+        var _a;
         const user = await User_1.User.findOne({
             where: [{ username: usernameOrEmail }, { email: usernameOrEmail }],
         });
@@ -185,22 +191,17 @@ let UserResolver = class UserResolver {
                 ],
             };
         }
-        req.session.userId = user.id;
+        const accessToken = jsonwebtoken_1.default.sign({ id: user.id }, (_a = process.env.JWT_SECRET_KEY) !== null && _a !== void 0 ? _a : "");
         return {
+            accessToken,
             user,
         };
     }
-    logout({ req, res }) {
-        return new Promise((resolve) => {
-            return req.session.destroy((err) => {
-                res.clearCookie(constants_1.COOKIE_NAME);
-                if (err) {
-                    console.log(err);
-                    resolve(false);
-                }
-                resolve(true);
-            });
-        });
+    logout({ req }) {
+        if (req.user) {
+            req.user = undefined;
+        }
+        return true;
     }
 };
 exports.UserResolver = UserResolver;
@@ -231,6 +232,7 @@ __decorate([
 ], UserResolver.prototype, "forgotPassword", null);
 __decorate([
     (0, type_graphql_1.Query)(() => User_1.User, { nullable: true }),
+    (0, type_graphql_1.UseMiddleware)(vadliateToken_1.validateToken),
     __param(0, (0, type_graphql_1.Ctx)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),

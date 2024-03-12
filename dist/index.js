@@ -3,23 +3,20 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-require("reflect-metadata");
-const express_1 = __importDefault(require("express"));
 const apollo_server_express_1 = require("apollo-server-express");
-const hello_1 = require("./resolvers/hello");
 require("dotenv-safe/config");
-const type_graphql_1 = require("type-graphql");
-const post_1 = require("./resolvers/post");
-const user_1 = require("./resolvers/user");
-const connect_redis_1 = __importDefault(require("connect-redis"));
-const express_session_1 = __importDefault(require("express-session"));
+const express_1 = __importDefault(require("express"));
 const ioredis_1 = __importDefault(require("ioredis"));
-const constants_1 = require("./constants");
+const path_1 = __importDefault(require("path"));
+require("reflect-metadata");
+const type_graphql_1 = require("type-graphql");
 const typeorm_1 = require("typeorm");
 const Post_1 = require("./entities/Post");
-const User_1 = require("./entities/User");
-const path_1 = __importDefault(require("path"));
 const UpVote_1 = require("./entities/UpVote");
+const User_1 = require("./entities/User");
+const hello_1 = require("./resolvers/hello");
+const post_1 = require("./resolvers/post");
+const user_1 = require("./resolvers/user");
 const main = async () => {
     const AppDataSource = new typeorm_1.DataSource({
         type: "postgres",
@@ -48,29 +45,6 @@ const main = async () => {
     redis.on("error", (err) => {
         console.error("Error connecting to Redis", err);
     });
-    // Initialize store.
-    let redisStore = new connect_redis_1.default({
-        client: redis,
-        disableTouch: true,
-    });
-    // Initialize sesssion storage.
-    app.use((0, express_session_1.default)({
-        name: constants_1.COOKIE_NAME, // query id
-        store: redisStore,
-        resave: false, // required: force lightweight session keep alive (touch)
-        saveUninitialized: false, // recommended: only save session when data exists
-        secret: process.env.SESSION_SECRET,
-        cookie: {
-            maxAge: 1000 * 60 * 60 * 24 * 365 * 10, // 10 years
-            httpOnly: true, // cookie is only accessible by the web server (not by javascript)
-            secure: constants_1.__prod__, // cookie is only sent to the server with an encrypted request over the HTTPS protocol
-            sameSite: "none", // cookie is not sent on cross-site requests (see https://owasp.org/www-community/SameSite)
-            domain: constants_1.__prod__ ? "reddithub.vercel.app/login" : undefined,
-            // for localhost, set sameSite: "lax" and secure: false
-            // for sandbox testing, set sameSite: "none" and secure: true
-            // for production, set sameSite: "none" and secure: true
-        },
-    }));
     const apolloServer = new apollo_server_express_1.ApolloServer({
         schema: await (0, type_graphql_1.buildSchema)({
             resolvers: [hello_1.HelloResolver, post_1.PostResolver, user_1.UserResolver],
@@ -86,7 +60,6 @@ const main = async () => {
         credentials: true,
     };
     // solution link: https://stackoverflow.com/questions/69333408/express-session-does-not-set-cookie
-    app.set("trust proxy", 1);
     await apolloServer.start();
     apolloServer.applyMiddleware({ app, cors: corsOptions });
     app.listen(4000, () => {

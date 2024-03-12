@@ -15,10 +15,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PostResolver = void 0;
 const type_graphql_1 = require("type-graphql");
 const Post_1 = require("../entities/Post");
-const isAuth_1 = require("../middlewares/isAuth");
 const typeorm_1 = require("typeorm");
 const UpVote_1 = require("../entities/UpVote");
 const User_1 = require("../entities/User");
+const vadliateToken_1 = require("../middlewares/vadliateToken");
 let PostInput = class PostInput {
 };
 __decorate([
@@ -53,10 +53,12 @@ let PostResolver = class PostResolver {
         return User_1.User.findOneBy({ id: post.creatorId });
     }
     async vote(postId, value, { req }) {
+        var _a;
         if (![1, -1].includes(value)) {
             throw new Error("value must be 1 or -1");
         }
-        const { userId } = req.session;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+        console.log({ userId, postId, value });
         const post = await Post_1.Post.findOneBy({ id: postId });
         if (!post) {
             return false;
@@ -89,7 +91,8 @@ let PostResolver = class PostResolver {
     }
     async posts({ req }, search, limit, cursor) {
         var _a;
-        const userId = (_a = req === null || req === void 0 ? void 0 : req.session) === null || _a === void 0 ? void 0 : _a.userId;
+        const userId = (_a = req === null || req === void 0 ? void 0 : req.user) === null || _a === void 0 ? void 0 : _a.id;
+        console.log({ userId });
         const realLimit = Math.min(50, limit);
         const realLimitPlusOne = realLimit + 1;
         const whereOptions = {};
@@ -112,6 +115,7 @@ let PostResolver = class PostResolver {
                 upvote = await UpVote_1.Upvote.findOne({ where: { postId: post.id, userId } });
             }
             post.voteStatus = upvote ? upvote.value : null;
+            console.log(upvote);
             return post;
         }));
         return {
@@ -123,17 +127,16 @@ let PostResolver = class PostResolver {
         return Post_1.Post.findOne({ where: { id } });
     }
     async createPost(input, { req }) {
-        if (!req.session.userId) {
-            throw new Error("not authenticated");
-        }
-        return Post_1.Post.create(Object.assign(Object.assign({}, input), { creatorId: req.session.userId })).save();
+        var _a;
+        return Post_1.Post.create(Object.assign(Object.assign({}, input), { creatorId: (_a = req.user) === null || _a === void 0 ? void 0 : _a.id })).save();
     }
     async updatePost({ req }, id, title, text) {
+        var _a;
         const post = await Post_1.Post.findOneBy({ id });
         if (!post) {
             return null;
         }
-        if (post.creatorId !== req.session.userId) {
+        if (post.creatorId !== ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id)) {
             throw new Error("not authorized");
         }
         await Post_1.Post.update({ id }, { title, text });
@@ -141,15 +144,16 @@ let PostResolver = class PostResolver {
         return updatedPost;
     }
     async deletePost(id, { req }) {
+        var _a, _b;
         const post = await Post_1.Post.findOneBy({ id });
         if (!post) {
             throw new Error("post not found");
         }
-        if (post.creatorId !== req.session.userId) {
+        if (post.creatorId !== ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id)) {
             throw new Error("not authorized");
         }
         await UpVote_1.Upvote.delete({ postId: id });
-        await Post_1.Post.delete({ id, creatorId: req.session.userId });
+        await Post_1.Post.delete({ id, creatorId: (_b = req.user) === null || _b === void 0 ? void 0 : _b.id });
         return true;
     }
 };
@@ -170,7 +174,7 @@ __decorate([
 ], PostResolver.prototype, "creator", null);
 __decorate([
     (0, type_graphql_1.Mutation)(() => Boolean),
-    (0, type_graphql_1.UseMiddleware)(isAuth_1.isAuth),
+    (0, type_graphql_1.UseMiddleware)(vadliateToken_1.validateToken),
     __param(0, (0, type_graphql_1.Arg)("postId", () => type_graphql_1.Int)),
     __param(1, (0, type_graphql_1.Arg)("value", () => type_graphql_1.Int)),
     __param(2, (0, type_graphql_1.Ctx)()),
@@ -180,6 +184,7 @@ __decorate([
 ], PostResolver.prototype, "vote", null);
 __decorate([
     (0, type_graphql_1.Query)(() => PaginatedPosts),
+    (0, type_graphql_1.UseMiddleware)(vadliateToken_1.validateTokenIfExists),
     __param(0, (0, type_graphql_1.Ctx)()),
     __param(1, (0, type_graphql_1.Arg)("search", { nullable: true })),
     __param(2, (0, type_graphql_1.Arg)("limit", () => type_graphql_1.Int)),
@@ -190,7 +195,7 @@ __decorate([
 ], PostResolver.prototype, "posts", null);
 __decorate([
     (0, type_graphql_1.Query)(() => Post_1.Post, { nullable: true }),
-    (0, type_graphql_1.UseMiddleware)(isAuth_1.isAuth),
+    (0, type_graphql_1.UseMiddleware)(vadliateToken_1.validateToken),
     __param(0, (0, type_graphql_1.Arg)("id", () => type_graphql_1.Int)),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Number]),
@@ -198,7 +203,7 @@ __decorate([
 ], PostResolver.prototype, "post", null);
 __decorate([
     (0, type_graphql_1.Mutation)(() => Post_1.Post),
-    (0, type_graphql_1.UseMiddleware)(isAuth_1.isAuth),
+    (0, type_graphql_1.UseMiddleware)(vadliateToken_1.validateToken),
     __param(0, (0, type_graphql_1.Arg)("input")),
     __param(1, (0, type_graphql_1.Ctx)()),
     __metadata("design:type", Function),
@@ -207,6 +212,7 @@ __decorate([
 ], PostResolver.prototype, "createPost", null);
 __decorate([
     (0, type_graphql_1.Mutation)(() => Post_1.Post, { nullable: true }),
+    (0, type_graphql_1.UseMiddleware)(vadliateToken_1.validateToken),
     __param(0, (0, type_graphql_1.Ctx)()),
     __param(1, (0, type_graphql_1.Arg)("id", () => type_graphql_1.Int)),
     __param(2, (0, type_graphql_1.Arg)("title")),
@@ -217,7 +223,7 @@ __decorate([
 ], PostResolver.prototype, "updatePost", null);
 __decorate([
     (0, type_graphql_1.Mutation)(() => Boolean),
-    (0, type_graphql_1.UseMiddleware)(isAuth_1.isAuth),
+    (0, type_graphql_1.UseMiddleware)(vadliateToken_1.validateToken),
     __param(0, (0, type_graphql_1.Arg)("id", () => type_graphql_1.Int)),
     __param(1, (0, type_graphql_1.Ctx)()),
     __metadata("design:type", Function),

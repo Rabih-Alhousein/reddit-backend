@@ -1,22 +1,19 @@
-import "reflect-metadata";
-import express from "express";
-import { ApolloServer } from "apollo-server-express";
-import { HelloResolver } from "./resolvers/hello";
-import "dotenv-safe/config";
-import { buildSchema } from "type-graphql";
-import { PostResolver } from "./resolvers/post";
-import { UserResolver } from "./resolvers/user";
+import { ApolloServer, ExpressContext } from "apollo-server-express";
 import RedisStore from "connect-redis";
-import session from "express-session";
+import "dotenv-safe/config";
+import express from "express";
 import Redis from "ioredis";
-import { COOKIE_NAME, __prod__ } from "./constants";
-import { MyContext } from "./types";
+import path from "path";
+import "reflect-metadata";
+import { buildSchema } from "type-graphql";
 import { DataSource } from "typeorm";
 import { Post } from "./entities/Post";
-import { User } from "./entities/User";
-import { ExpressContext } from "apollo-server-express";
-import path from "path";
 import { Upvote } from "./entities/UpVote";
+import { User } from "./entities/User";
+import { HelloResolver } from "./resolvers/hello";
+import { PostResolver } from "./resolvers/post";
+import { UserResolver } from "./resolvers/user";
+import { MyContext } from "./types";
 
 const main = async () => {
   const AppDataSource = new DataSource({
@@ -53,35 +50,6 @@ const main = async () => {
   redis.on("error", (err) => {
     console.error("Error connecting to Redis", err);
   });
-
-  // Initialize store.
-  let redisStore = new RedisStore({
-    client: redis,
-    disableTouch: true,
-  });
-
-  app.set("trust proxy", 1);
-
-  // Initialize sesssion storage.
-  app.use(
-    session({
-      name: COOKIE_NAME, // query id
-      store: redisStore,
-      resave: false, // required: force lightweight session keep alive (touch)
-      saveUninitialized: false, // recommended: only save session when data exists
-      secret: process.env.SESSION_SECRET as string,
-      cookie: {
-        maxAge: 1000 * 60 * 60 * 24 * 365 * 10, // 10 years
-        httpOnly: true, // cookie is only accessible by the web server (not by javascript)
-        secure: __prod__, // cookie is only sent to the server with an encrypted request over the HTTPS protocol
-        sameSite: "none", // cookie is not sent on cross-site requests (see https://owasp.org/www-community/SameSite)
-        domain: __prod__ ? "reddithub.vercel.app" : undefined,
-        // for localhost, set sameSite: "lax" and secure: false
-        // for sandbox testing, set sameSite: "none" and secure: true
-        // for production, set sameSite: "none" and secure: true
-      },
-    })
-  );
 
   const apolloServer = new ApolloServer({
     schema: await buildSchema({
